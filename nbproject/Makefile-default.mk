@@ -51,17 +51,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=SH1101A.c RGBLeds.c TouchSense.c main.c
+SOURCEFILES_QUOTED_IF_SPACED=SH1101A.c RGBLeds.c TouchSense.c main.c storage.c menu.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/SH1101A.o ${OBJECTDIR}/RGBLeds.o ${OBJECTDIR}/TouchSense.o ${OBJECTDIR}/main.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/SH1101A.o.d ${OBJECTDIR}/RGBLeds.o.d ${OBJECTDIR}/TouchSense.o.d ${OBJECTDIR}/main.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/SH1101A.o ${OBJECTDIR}/RGBLeds.o ${OBJECTDIR}/TouchSense.o ${OBJECTDIR}/main.o ${OBJECTDIR}/storage.o ${OBJECTDIR}/menu.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/SH1101A.o.d ${OBJECTDIR}/RGBLeds.o.d ${OBJECTDIR}/TouchSense.o.d ${OBJECTDIR}/main.o.d ${OBJECTDIR}/storage.o.d ${OBJECTDIR}/menu.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/SH1101A.o ${OBJECTDIR}/RGBLeds.o ${OBJECTDIR}/TouchSense.o ${OBJECTDIR}/main.o
+OBJECTFILES=${OBJECTDIR}/SH1101A.o ${OBJECTDIR}/RGBLeds.o ${OBJECTDIR}/TouchSense.o ${OBJECTDIR}/main.o ${OBJECTDIR}/storage.o ${OBJECTDIR}/menu.o
 
 # Source Files
-SOURCEFILES=SH1101A.c RGBLeds.c TouchSense.c main.c
+SOURCEFILES=SH1101A.c RGBLeds.c TouchSense.c main.c storage.c menu.c
 
 
 
@@ -113,6 +113,18 @@ ${OBJECTDIR}/main.o: main.c  .generated_files/flags/default/139732c5f07ece6b81b5
 	@${RM} ${OBJECTDIR}/main.o 
 	${MP_CC} $(MP_EXTRA_CC_PRE)  main.c  -o ${OBJECTDIR}/main.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/main.o.d"      -g -D__DEBUG     -omf=elf -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
 	
+${OBJECTDIR}/storage.o: storage.c  .generated_files/flags/default/d08107561660b7f8b64a301b37fb2c9b09bf803e .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/storage.o.d 
+	@${RM} ${OBJECTDIR}/storage.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  storage.c  -o ${OBJECTDIR}/storage.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/storage.o.d"      -g -D__DEBUG     -omf=elf -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
+	
+${OBJECTDIR}/menu.o: menu.c  .generated_files/flags/default/29f3d7aa4a259c0552501415f1cb74429022346e .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/menu.o.d 
+	@${RM} ${OBJECTDIR}/menu.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  menu.c  -o ${OBJECTDIR}/menu.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/menu.o.d"      -g -D__DEBUG     -omf=elf -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
+	
 else
 ${OBJECTDIR}/SH1101A.o: SH1101A.c  .generated_files/flags/default/8582c598a85ad558cb60099fc4cc21d30ae3dc1f .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
 	@${MKDIR} "${OBJECTDIR}" 
@@ -137,6 +149,18 @@ ${OBJECTDIR}/main.o: main.c  .generated_files/flags/default/5e46fe454c0d66eff29c
 	@${RM} ${OBJECTDIR}/main.o.d 
 	@${RM} ${OBJECTDIR}/main.o 
 	${MP_CC} $(MP_EXTRA_CC_PRE)  main.c  -o ${OBJECTDIR}/main.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/main.o.d"        -g -omf=elf -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
+	
+${OBJECTDIR}/storage.o: storage.c  .generated_files/flags/default/6055c94d6ec96737accf5eb1bc3fa5b8f60766bf .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/storage.o.d 
+	@${RM} ${OBJECTDIR}/storage.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  storage.c  -o ${OBJECTDIR}/storage.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/storage.o.d"        -g -omf=elf -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
+	
+${OBJECTDIR}/menu.o: menu.c  .generated_files/flags/default/2a068c42a22fb09366294abaa156fb7f863503f5 .generated_files/flags/default/da39a3ee5e6b4b0d3255bfef95601890afd80709
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/menu.o.d 
+	@${RM} ${OBJECTDIR}/menu.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  menu.c  -o ${OBJECTDIR}/menu.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MP -MMD -MF "${OBJECTDIR}/menu.o.d"        -g -omf=elf -DXPRJ_default=$(CND_CONF)    $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
 	
 endif
 

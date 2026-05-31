@@ -156,32 +156,32 @@ void TextClear(void) {
  * ======================================================================== */
 extern uint8_t buttons[NUM_TOUCHPADS];
 
+#define DEBOUNCE_PRESS   3
+#define DEBOUNCE_RELEASE 3
+
 static struct {
     uint8_t state;
     uint8_t count;
 } btn[5] = {{0}};
 
 int InputPoll(void) {
-    ReadCTMU();
+    for (int i = 0; i < NUM_TOUCHPADS; i++)
+        ReadCTMU();
+
     int result = BTN_NONE;
-    for (int i = 0; i < 5; i++) {
-        uint8_t raw = buttons[i];
-        if (btn[i].state == 0) {
-            if (raw) {
+    for (int i = 0; i < NUM_TOUCHPADS; i++) {
+        if (buttons[i]) {
+            if (btn[i].count < DEBOUNCE_PRESS + DEBOUNCE_RELEASE)
                 btn[i].count++;
-                if (btn[i].count >= 2) {
-                    btn[i].state = 1;
-                    btn[i].count = 0;
-                    result = i;
-                }
+            if (btn[i].state == 0 && btn[i].count >= DEBOUNCE_PRESS) {
+                btn[i].state = 1;
+                result = i;
             }
-        } else if (btn[i].state == 1) {
-            btn[i].state = 2;
         } else {
-            if (!raw) {
+            if (btn[i].count > 0)
+                btn[i].count--;
+            if (btn[i].state == 1 && btn[i].count == 0)
                 btn[i].state = 0;
-                btn[i].count = 0;
-            }
         }
     }
     return result;

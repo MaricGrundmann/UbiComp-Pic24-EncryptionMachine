@@ -4,6 +4,13 @@
 #include <xc.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
+
+/* Custom static-pool allocator for USB host stack (no heap needed) */
+#define USB_MALLOC(size)  USBHost_Malloc(size)
+#define USB_FREE(ptr)     ((void)(ptr))
+
+void *USBHost_Malloc(size_t size);
 
 #ifndef BOOL
 typedef bool BOOL;

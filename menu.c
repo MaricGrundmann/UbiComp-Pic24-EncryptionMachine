@@ -7,6 +7,7 @@
 #include "RGBLeds.h"
 #include "TouchSense.h"
 #include "menu.h"
+#include "storage.h"
 
 extern void DelayMs(uint16_t ms);
 #define INIT_CLOCK()  do { OSCCON = 0x3302; CLKDIV = 0x0000; } while(0)
@@ -197,6 +198,7 @@ void App_Init(void) {
     RGBMapColorPins();
     RGBTurnOnLED();
     SetRGBs(0, 0, 0);
+    Storage_Init();
     
     TextClear();
     SetColor(WHITE);
@@ -283,13 +285,51 @@ static void Screen_Decrypt(void) {
 
 static void Screen_SelectFile(void) {
     uint8_t redraw = 1;
+    int sel = 0;
+    int scroll = 0;
+    const int VISIBLE = 6;
+
     for (;;) {
-        if (InputPoll() == BTN_LEFT) break;
+        Storage_UpdateTask();
+        int ev = InputPoll();
+
+        if (ev == BTN_LEFT) break;
+
+        uint8_t count = Storage_FileCount();
+
+        if (count > 0) {
+            if (ev == BTN_UP && sel > 0) {
+                sel--;
+                if (sel < scroll) scroll = sel;
+                redraw = 1;
+            }
+            if (ev == BTN_DOWN && sel < count - 1) {
+                sel++;
+                if (sel >= scroll + VISIBLE) scroll = sel - VISIBLE + 1;
+                redraw = 1;
+            }
+            if (ev == BTN_CENTER) {
+                break;
+            }
+        }
+
         if (redraw) {
             TextClear();
             SetColor(WHITE);
             TextDrawLine(0, "Select file");
-            TextDrawLine(2, "No files found");
+
+            if (count == 0) {
+                TextDrawLine(2, "No files found");
+            } else {
+                int line = 1;
+                for (int i = scroll; i < count && line <= VISIBLE; i++, line++) {
+                    char buf[MENU_COLS + 1];
+                    snprintf(buf, sizeof buf, "%c %s",
+                             (i == sel) ? '>' : ' ', Storage_FileName(i));
+                    TextDrawLine(line, buf);
+                }
+            }
+
             TextDrawLine(7, "LEFT = back");
             redraw = 0;
         }

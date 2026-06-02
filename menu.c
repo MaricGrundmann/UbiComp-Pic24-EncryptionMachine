@@ -208,7 +208,7 @@ void App_Init(void) {
 
 void App_Run(void) {
     static const char *items[] = {
-        "Encrypt", "Decrypt", "Select file", "USB Debug"
+        "Encrypt", "Decrypt", "Select file" //, "USB Debug"
     };
     int sel = 0;
     int prev_sel = -1;
@@ -234,7 +234,7 @@ void App_Run(void) {
             TextClear();
             SetColor(WHITE);
             TextDrawLine(0, "=== Main Menu ===");
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 3; i++) {
                 char buf[MENU_COLS + 1];
                 snprintf(buf, sizeof buf, "%c %s",
                          (i == sel) ? '>' : ' ', items[i]);

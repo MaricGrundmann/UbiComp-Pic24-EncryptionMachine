@@ -6,27 +6,13 @@
 #include "usb_host.h"
 #include "usb_host_msd.h"
 #include "usb_host_msd_scsi.h"
+#include "usb_app.h"
 
 extern void GetTimestamp(FILEIO_TIMESTAMP *);
 
-void __attribute__((interrupt, auto_psv)) _USB1Interrupt(void);
-
 #define MAX_CACHED_FILES 50
 
-/* Static pool for USB host stack allocations (no heap configured) */
-#define USB_HOST_POOL_SIZE 1024
-static uint8_t usbHostPool[USB_HOST_POOL_SIZE];
-static uint16_t usbHostPoolIdx;
-
-void *USBHost_Malloc(size_t size) {
-    uint16_t idx = usbHostPoolIdx;
-    if (idx + size > USB_HOST_POOL_SIZE) return NULL;
-    usbHostPoolIdx += size;
-    return &usbHostPool[idx];
-}
-
 static uint8_t msdAddress = 0;
-static uint8_t usbInitialized = 0;
 static uint8_t driveMounted = 0;
 static uint8_t cachedFileCount = 0;
 static char cachedFileNames[MAX_CACHED_FILES][13];
@@ -54,19 +40,13 @@ static uint8_t Storage_FindMSD(void) {
 void Storage_Init(void) {
     FILEIO_Initialize();
     FILEIO_RegisterTimestampGet(GetTimestamp);
-    usbInitialized = 0;
     driveMounted = 0;
     cachedFileCount = 0;
 }
 
 void Storage_UpdateTask(void) {
-    if (!usbInitialized) {
-        usbHostPoolIdx = 0;
-        usbInitialized = 1;
-        USBInitialize(0);
-    }
-
-    USBTasks();
+    USB_SystemInit();
+    USB_SystemTasks();
 
     if (!driveMounted) {
         if (Storage_FindMSD()) {
@@ -113,8 +93,4 @@ int8_t Storage_LoadFile(uint8_t index) {
 
 int8_t Storage_SaveFile(const char *name) {
     return -1;
-}
-
-void __attribute__((interrupt, auto_psv)) _USB1Interrupt(void) {
-    USB_HostInterruptHandler();
 }

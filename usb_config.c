@@ -40,6 +40,6 @@ USB_TPL usbTPL[] =
 {
     { INIT_CL_SC_P( 8ul, 6ul, 0x50ul ), 0, 0, {TPL_CLASS_DRV} }, // MSD flash drives
     { INIT_CL_SC_P( 8ul, 5ul, 0x50ul ), 0, 0, {TPL_CLASS_DRV} }, // Some other MSD flash drives
-    { INIT_CL_SC_P( 3ul, 1ul, 1ul ), 0, 0, {TPL_CLASS_DRV} }, // HID Keyboard (Boot interface)
-    { INIT_CL_SC_P( 3ul, 0ul, 0ul ), 0, 0, {TPL_CLASS_DRV} }  // HID Generic
+    { INIT_CL_SC_P( 3ul, 1ul, 1ul ), 0, 1, {TPL_CLASS_DRV} }, // HID Keyboard (Boot interface)
+    { INIT_CL_SC_P( 3ul, 0ul, 0ul ), 0, 1, {TPL_CLASS_DRV} }  // HID Generic
 };

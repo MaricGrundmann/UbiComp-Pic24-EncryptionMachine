@@ -8,14 +8,17 @@
 #include "TouchSense.h"
 #include "menu.h"
 #include "storage.h"
+#include "usb_app.h"
+#include "keyboard.h"
 
 extern void DelayMs(uint16_t ms);
 #define INIT_CLOCK()  do { OSCCON = 0x3302; CLKDIV = 0x0000; } while(0)
 
+#define PASSWORD_MAX 32
+
 static void Screen_Encrypt(void);
 static void Screen_Decrypt(void);
-static void Screen_SelectFile(void);
-static void Screen_USBDebug(void);
+static int8_t Screen_PasswordInput(const char *prompt, char *password, uint8_t maxLen);
 
 /* ======================================================================== *
  *  5x7 ASCII font (0x20 - 0x7E), column-major: each byte = one column,
@@ -199,7 +202,8 @@ void App_Init(void) {
     RGBTurnOnLED();
     SetRGBs(0, 0, 0);
     Storage_Init();
-    
+    Keyboard_Init();
+
     TextClear();
     SetColor(WHITE);
     TextDrawLine(1, "PIC24 Encryption");
@@ -210,27 +214,27 @@ void App_Init(void) {
 
 void App_Run(void) {
     static const char *items[] = {
-        "Encrypt", "Decrypt", "Select file" //, "USB Debug"
+        "Encrypt", "Decrypt"
     };
     int sel = 0;
     int prev_sel = -1;
     uint8_t redraw = 1;
 
+    USB_SystemInit();
+
     for (;;) {
         int ev = InputPoll();
-        
+
         if (ev == BTN_UP   && sel > 0) { sel--; redraw = 1; }
-        if (ev == BTN_DOWN && sel < 3) { sel++; redraw = 1; }
+        if (ev == BTN_DOWN && sel < 1) { sel++; redraw = 1; }
         if (ev == BTN_CENTER) {
             redraw = 1;
             switch (sel) {
                 case 0: Screen_Encrypt();    break;
                 case 1: Screen_Decrypt();    break;
-                case 2: Screen_SelectFile(); break;
-                case 3: Screen_USBDebug();   break;
             }
         }
-        
+
         if (redraw || sel != prev_sel) {
             prev_sel = sel;
             TextClear();
@@ -244,46 +248,91 @@ void App_Run(void) {
             }
             redraw = 0;
         }
+
+        USB_SystemTasks();
+        Keyboard_Tasks();
+
+        {
+            const char *s = USB_GetStatus();
+            if (s[0]) {
+                TextDrawLine(7, s);
+                USB_ClearStatus();
+            }
+        }
+
         DelayMs(15);
     }
 }
 
 /* ======================================================================== *
- *  Sub-screens (placeholders)
+ *  Password input screen
+ *  Returns length on OK, -1 on cancel.
  * ======================================================================== */
-static void Screen_Encrypt(void) {
+static int8_t Screen_PasswordInput(const char *prompt, char *password, uint8_t maxLen) {
+    uint8_t pos = 0;
     uint8_t redraw = 1;
+
+    USB_SystemInit();
+
+    memset(password, 0, maxLen);
+
     for (;;) {
-        if (InputPoll() == BTN_LEFT) break;
-        if (redraw) {
-            TextClear();
-            SetColor(WHITE);
-            TextDrawLine(0, "Encrypt");
-            TextDrawLine(2, "Not implemented");
-            TextDrawLine(7, "LEFT = back");
-            redraw = 0;
+        int ev = InputPoll();
+        USB_SystemTasks();
+        Keyboard_Tasks();
+
+        while (Keyboard_CharAvailable()) {
+            char c = Keyboard_ReadChar();
+            if (c == '\n') {
+                password[pos] = '\0';
+                return (int8_t)pos;
+            }
+            if (c == 0x1B) {
+                return -1;
+            }
+            if (c == '\b') {
+                if (pos > 0) {
+                    pos--;
+                    password[pos] = '\0';
+                }
+            } else if (c >= 0x20 && c <= 0x7E) {
+                if (pos < maxLen - 1) {
+                    password[pos] = c;
+                    pos++;
+                    password[pos] = '\0';
+                }
+            }
         }
+
+        {
+            const char *s = USB_GetStatus();
+            if (s[0]) {
+                USB_ClearStatus();
+            }
+        }
+
+        if (ev == BTN_LEFT) {
+            return -1;
+        }
+
+        TextClear();
+        SetColor(WHITE);
+        TextDrawLine(0, prompt);
+        TextDrawLine(2, password);
+        TextDrawLine(4, "ENTER = ok");
+        TextDrawLine(5, "LEFT  = cancel");
+        TextDrawLine(7, Keyboard_IsConnected() ? "Kbd connected" : "No keyboard");
+
+
+
         DelayMs(15);
     }
 }
 
-static void Screen_Decrypt(void) {
-    uint8_t redraw = 1;
-    for (;;) {
-        if (InputPoll() == BTN_LEFT) break;
-        if (redraw) {
-            TextClear();
-            SetColor(WHITE);
-            TextDrawLine(0, "Decrypt");
-            TextDrawLine(2, "Not implemented");
-            TextDrawLine(7, "LEFT = back");
-            redraw = 0;
-        }
-        DelayMs(15);
-    }
-}
-
-static void Screen_SelectFile(void) {
+/* ======================================================================== *
+ *  Sub-screens
+ * ======================================================================== */
+static int8_t Screen_SelectFileInt(const char *title, const char *action) {
     uint8_t redraw = 1;
     int sel = 0;
     int scroll = 0;
@@ -293,7 +342,7 @@ static void Screen_SelectFile(void) {
         Storage_UpdateTask();
         int ev = InputPoll();
 
-        if (ev == BTN_LEFT) break;
+        if (ev == BTN_LEFT) return -1;
 
         uint8_t count = Storage_FileCount();
 
@@ -309,14 +358,14 @@ static void Screen_SelectFile(void) {
                 redraw = 1;
             }
             if (ev == BTN_CENTER) {
-                break;
+                return (int8_t)sel;
             }
         }
 
         if (redraw) {
             TextClear();
             SetColor(WHITE);
-            TextDrawLine(0, "Select file");
+            TextDrawLine(0, title);
 
             if (count == 0) {
                 TextDrawLine(2, "No files found");
@@ -337,19 +386,60 @@ static void Screen_SelectFile(void) {
     }
 }
 
-static void Screen_USBDebug(void) {
-    uint8_t redraw = 1;
+static void Screen_Encrypt(void) {
     for (;;) {
-        if (InputPoll() == BTN_LEFT) break;
-        if (redraw) {
-            TextClear();
-            SetColor(WHITE);
-            TextDrawLine(0, "USB Debug");
-            TextDrawLine(2, "Configure via MCC");
-            TextDrawLine(3, "in MPLAB X IDE");
-            TextDrawLine(7, "LEFT = back");
-            redraw = 0;
+        int8_t fileIdx = Screen_SelectFileInt("Encrypt - select", "Encrypt");
+        if (fileIdx < 0) break;
+
+        char password[PASSWORD_MAX];
+        int8_t len = Screen_PasswordInput("=== Encrypt ===", password, PASSWORD_MAX);
+        if (len < 0) continue;
+
+        uint8_t redraw = 1;
+        for (;;) {
+            if (InputPoll() == BTN_LEFT) break;
+            if (redraw) {
+                TextClear();
+                SetColor(WHITE);
+                TextDrawLine(0, "Encrypt");
+                TextDrawLine(2, Storage_FileName((uint8_t)fileIdx));
+                TextDrawLine(3, "Password accepted");
+                TextDrawLine(7, "LEFT = next file");
+                redraw = 0;
+            }
+            USB_SystemTasks();
+            Keyboard_Tasks();
+            DelayMs(15);
         }
-        DelayMs(15);
     }
 }
+
+static void Screen_Decrypt(void) {
+    for (;;) {
+        int8_t fileIdx = Screen_SelectFileInt("Decrypt - select", "Decrypt");
+        if (fileIdx < 0) break;
+
+        char password[PASSWORD_MAX];
+        int8_t len = Screen_PasswordInput("=== Decrypt ===", password, PASSWORD_MAX);
+        if (len < 0) continue;
+
+        uint8_t redraw = 1;
+        for (;;) {
+            if (InputPoll() == BTN_LEFT) break;
+            if (redraw) {
+                TextClear();
+                SetColor(WHITE);
+                TextDrawLine(0, "Decrypt");
+                TextDrawLine(2, Storage_FileName((uint8_t)fileIdx));
+                TextDrawLine(3, "Password accepted");
+                TextDrawLine(7, "LEFT = next file");
+                redraw = 0;
+            }
+            USB_SystemTasks();
+            Keyboard_Tasks();
+            DelayMs(15);
+        }
+    }
+}
+
+

@@ -31,7 +31,7 @@ typedef bool BOOL;
 #define USB_PING_PONG_MODE  USB_PING_PONG__FULL_PING_PONG
 
 /* Host configuration */
-#define NUM_TPL_ENTRIES 2
+#define NUM_TPL_ENTRIES 4
 #define USB_NUM_CONTROL_NAKS 200
 #define USB_SUPPORT_INTERRUPT_TRANSFERS
 #define USB_NUM_INTERRUPT_NAKS 20
@@ -45,6 +45,7 @@ typedef bool BOOL;
 /* HID Configuration */
 #define USB_MAX_HID_DEVICES 1
 #define HID_MAX_DATA_FIELD_SIZE 8
+#define USB_HID_ENABLE_TRANSFER_EVENT
 #define APPL_COLLECT_PARSED_DATA USB_HID_DataCollectionHandler
 
 /* MSD Configuration */

@@ -29,6 +29,8 @@
       <itemPath>usb_config.h</itemPath>
       <itemPath>fileio_config.h</itemPath>
       <itemPath>system.h</itemPath>
+      <itemPath>usb_app.h</itemPath>
+      <itemPath>keyboard.h</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -58,6 +60,7 @@
       <itemPath>mla_fileio/src/fileio.c</itemPath>
       <itemPath>usb_config.c</itemPath>
       <itemPath>usb_app.c</itemPath>
+      <itemPath>keyboard.c</itemPath>
     </logicalFolder>
   </logicalFolder>
   <projectmakefile>Makefile</projectmakefile>

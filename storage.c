@@ -7,10 +7,17 @@
 #include "usb_host_msd.h"
 #include "usb_host_msd_scsi.h"
 #include "usb_app.h"
+static void Cipher_Init(const char *password, uint8_t len) {
+    (void)password; (void)len;
+}
+static void Cipher_Process(uint8_t *buffer, uint16_t len) {
+    (void)buffer; (void)len;
+}
 
 extern void GetTimestamp(FILEIO_TIMESTAMP *);
 
 #define MAX_CACHED_FILES 50
+#define CHUNK_SIZE 512
 
 static uint8_t msdAddress = 0;
 static uint8_t driveMounted = 0;
@@ -87,10 +94,82 @@ const char *Storage_FileName(uint8_t index) {
     return cachedFileNames[index];
 }
 
-int8_t Storage_LoadFile(uint8_t index) {
-    return -1;
-}
+int8_t Storage_ProcessFile(uint8_t index, const char *password, uint8_t pwLen, uint8_t encrypt) {
+    if (!driveMounted || index >= cachedFileCount)
+        return -1;
 
-int8_t Storage_SaveFile(const char *name) {
-    return -1;
+    FILEIO_OBJECT src, dst;
+    char srcName[13];
+
+    memcpy(srcName, cachedFileNames[index], 13);
+
+    char dstName[13];
+    if (encrypt) {
+        uint8_t dot = 255, i;
+        for (i = 0; srcName[i]; i++)
+            if (srcName[i] == '.') dot = i;
+        for (i = 0; i < 12 && srcName[i] && srcName[i] != '.'; i++)
+            dstName[i] = srcName[i];
+        if (dot < 12) {
+            if (i + 4 < 12) {
+                dstName[i] = '.';
+                dstName[i+1] = 'E';
+                dstName[i+2] = 'N';
+                dstName[i+3] = 'C';
+                dstName[i+4] = '\0';
+            } else return -1;
+        } else {
+            if (i + 4 < 12) {
+                dstName[i] = '.';
+                dstName[i+1] = 'E';
+                dstName[i+2] = 'N';
+                dstName[i+3] = 'C';
+                dstName[i+4] = '\0';
+            } else return -1;
+        }
+    } else {
+        uint8_t slen = strlen(srcName);
+        if (slen > 4 && srcName[slen-4] == '.' &&
+            (srcName[slen-3] == 'E' || srcName[slen-3] == 'e') &&
+            (srcName[slen-2] == 'N' || srcName[slen-2] == 'n') &&
+            (srcName[slen-1] == 'C' || srcName[slen-1] == 'c')) {
+            memcpy(dstName, srcName, slen - 4);
+            dstName[slen - 4] = '\0';
+        } else {
+            return -1;
+        }
+    }
+
+    if (FILEIO_Open(&src, srcName, FILEIO_OPEN_READ) != 0)
+        return -1;
+
+    if (FILEIO_Open(&dst, dstName,
+            FILEIO_OPEN_WRITE | FILEIO_OPEN_CREATE | FILEIO_OPEN_TRUNCATE) != 0) {
+        FILEIO_Close(&src);
+        return -1;
+    }
+
+    Cipher_Init(password, pwLen);
+
+    uint8_t chunk[CHUNK_SIZE];
+    int16_t result = 0;
+
+    while (!FILEIO_Eof(&src)) {
+        uint16_t bytesRead = FILEIO_Read(chunk, 1, CHUNK_SIZE, &src);
+        if (bytesRead == 0) break;
+
+        Cipher_Process(chunk, bytesRead);
+
+        uint16_t bytesWritten = FILEIO_Write(chunk, 1, bytesRead, &dst);
+        if (bytesWritten != bytesRead) {
+            result = -1;
+            break;
+        }
+    }
+
+    FILEIO_Flush(&dst);
+    FILEIO_Close(&src);
+    FILEIO_Close(&dst);
+
+    return result;
 }

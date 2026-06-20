@@ -270,7 +270,6 @@ void App_Run(void) {
  * ======================================================================== */
 static int8_t Screen_PasswordInput(const char *prompt, char *password, uint8_t maxLen) {
     uint8_t pos = 0;
-    uint8_t redraw = 1;
 
     USB_SystemInit();
 
@@ -278,7 +277,7 @@ static int8_t Screen_PasswordInput(const char *prompt, char *password, uint8_t m
 
     for (;;) {
         int ev = InputPoll();
-        USB_SystemTasks();
+        Storage_UpdateTask();
         Keyboard_Tasks();
 
         while (Keyboard_CharAvailable()) {
@@ -338,6 +337,7 @@ static int8_t Screen_SelectFileInt(const char *title, const char *action) {
     int scroll = 0;
     const int VISIBLE = 6;
 
+    uint8_t prevCount = 0;
     for (;;) {
         Storage_UpdateTask();
         int ev = InputPoll();
@@ -345,6 +345,13 @@ static int8_t Screen_SelectFileInt(const char *title, const char *action) {
         if (ev == BTN_LEFT) return -1;
 
         uint8_t count = Storage_FileCount();
+
+        if (count != prevCount) {
+            prevCount = count;
+            sel = 0;
+            scroll = 0;
+            redraw = 1;
+        }
 
         if (count > 0) {
             if (ev == BTN_UP && sel > 0) {
@@ -369,6 +376,7 @@ static int8_t Screen_SelectFileInt(const char *title, const char *action) {
 
             if (count == 0) {
                 TextDrawLine(2, "No files found");
+                TextDrawLine(3, "Insert USB drive");
             } else {
                 int line = 1;
                 for (int i = scroll; i < count && line <= VISIBLE; i++, line++) {
@@ -386,14 +394,24 @@ static int8_t Screen_SelectFileInt(const char *title, const char *action) {
     }
 }
 
-static void Screen_Encrypt(void) {
+static void Screen_ProcessFiles(const char *title, uint8_t encrypt) {
+    char password[PASSWORD_MAX];
+    int8_t pwLen = Screen_PasswordInput(title, password, PASSWORD_MAX);
+    if (pwLen < 0) return;
+
     for (;;) {
-        int8_t fileIdx = Screen_SelectFileInt("Encrypt - select", "Encrypt");
+        int8_t fileIdx = Screen_SelectFileInt(title, title);
         if (fileIdx < 0) break;
 
-        char password[PASSWORD_MAX];
-        int8_t len = Screen_PasswordInput("=== Encrypt ===", password, PASSWORD_MAX);
-        if (len < 0) continue;
+        TextClear();
+        SetColor(WHITE);
+        TextDrawLine(0, title);
+        TextDrawLine(2, Storage_FileName((uint8_t)fileIdx));
+        TextDrawLine(4, "Processing...");
+        USB_SystemTasks();
+        Keyboard_Tasks();
+
+        int8_t res = Storage_ProcessFile((uint8_t)fileIdx, password, (uint8_t)pwLen, encrypt);
 
         uint8_t redraw = 1;
         for (;;) {
@@ -401,45 +419,25 @@ static void Screen_Encrypt(void) {
             if (redraw) {
                 TextClear();
                 SetColor(WHITE);
-                TextDrawLine(0, "Encrypt");
+                TextDrawLine(0, title);
                 TextDrawLine(2, Storage_FileName((uint8_t)fileIdx));
-                TextDrawLine(3, "Password accepted");
+                TextDrawLine(4, res == 0 ? "Done" : "Error!");
                 TextDrawLine(7, "LEFT = next file");
                 redraw = 0;
             }
-            USB_SystemTasks();
-            Keyboard_Tasks();
+        Storage_UpdateTask();
+        Keyboard_Tasks();
             DelayMs(15);
         }
     }
 }
 
+static void Screen_Encrypt(void) {
+    Screen_ProcessFiles("Encrypt", 1);
+}
+
 static void Screen_Decrypt(void) {
-    for (;;) {
-        int8_t fileIdx = Screen_SelectFileInt("Decrypt - select", "Decrypt");
-        if (fileIdx < 0) break;
-
-        char password[PASSWORD_MAX];
-        int8_t len = Screen_PasswordInput("=== Decrypt ===", password, PASSWORD_MAX);
-        if (len < 0) continue;
-
-        uint8_t redraw = 1;
-        for (;;) {
-            if (InputPoll() == BTN_LEFT) break;
-            if (redraw) {
-                TextClear();
-                SetColor(WHITE);
-                TextDrawLine(0, "Decrypt");
-                TextDrawLine(2, Storage_FileName((uint8_t)fileIdx));
-                TextDrawLine(3, "Password accepted");
-                TextDrawLine(7, "LEFT = next file");
-                redraw = 0;
-            }
-            USB_SystemTasks();
-            Keyboard_Tasks();
-            DelayMs(15);
-        }
-    }
+    Screen_ProcessFiles("Decrypt", 0);
 }
 
 

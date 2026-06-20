@@ -12,7 +12,6 @@ void        Storage_UpdateTask(void);
 uint8_t     Storage_Present(void);
 uint8_t     Storage_FileCount(void);
 const char *Storage_FileName(uint8_t index);
-int8_t      Storage_LoadFile(uint8_t index);
-int8_t      Storage_SaveFile(const char *name);
+int8_t      Storage_ProcessFile(uint8_t index, const char *password, uint8_t pwLen, uint8_t encrypt);
 
 #endif

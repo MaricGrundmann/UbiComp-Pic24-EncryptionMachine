@@ -50,6 +50,7 @@
       <itemPath>TouchSense.c</itemPath>
       <itemPath>main.c</itemPath>
       <itemPath>storage.c</itemPath>
+      <itemPath>cipher.c</itemPath>
       <itemPath>menu.c</itemPath>
       <itemPath>mla_usb/src/usb_host.c</itemPath>
       <itemPath>mla_usb/src/usb_hal_pic24f.c</itemPath>

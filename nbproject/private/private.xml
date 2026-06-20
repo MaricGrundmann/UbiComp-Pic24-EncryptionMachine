@@ -2,15 +2,6 @@
 <project-private xmlns="http://www.netbeans.org/ns/project-private/1">
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
-        <group>
-            <file>file:/home/maric/Dokumente/Git/UbiComp-Pic24-EncryptionMachine/storage.c</file>
-            <file>file:/home/maric/Dokumente/Git/UbiComp-Pic24-EncryptionMachine/menu.c</file>
-            <file>file:/home/maric/Dokumente/Git/UbiComp-Pic24-EncryptionMachine/main.c</file>
-            <file>file:/home/maric/Dokumente/Git/UbiComp-Pic24-EncryptionMachine/SH1101A.c</file>
-            <file>file:/home/maric/Dokumente/Git/UbiComp-Pic24-EncryptionMachine/mla_fileio/src/fileio.c</file>
-            <file>file:/home/maric/Dokumente/Git/UbiComp-Pic24-EncryptionMachine/mla_usb/src/usb_host.c</file>
-            <file>file:/home/maric/Dokumente/Git/UbiComp-Pic24-EncryptionMachine/usb_app.c</file>
-            <file>file:/home/maric/Dokumente/Git/UbiComp-Pic24-EncryptionMachine/RGBLeds.c</file>
-        </group>
+        <group/>
     </open-files>
 </project-private>

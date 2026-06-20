@@ -7,12 +7,7 @@
 #include "usb_host_msd.h"
 #include "usb_host_msd_scsi.h"
 #include "usb_app.h"
-static void Cipher_Init(const char *password, uint8_t len) {
-    (void)password; (void)len;
-}
-static void Cipher_Process(uint8_t *buffer, uint16_t len) {
-    (void)buffer; (void)len;
-}
+#include "cipher.h"
 
 extern void GetTimestamp(FILEIO_TIMESTAMP *);
 

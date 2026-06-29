@@ -50,15 +50,4 @@ void CIPHER_Encrypt(const uint8_t *key,
  */
 uint16_t CIPHER_PKCS7_Pad(uint8_t *buf, uint16_t data_len);
 
-/**
- * CIPHER_PKCS7_Unpad
- *
- * Validates and strips PKCS#7 padding from a decrypted buffer.
- *
- * @param buf      Decrypted buffer (read-only)
- * @param buf_len  Total buffer length (must be a multiple of CIPHER_BLOCK_SIZE)
- * @return         Original data length, or 0 if padding is invalid/corrupt
- */
-uint16_t CIPHER_PKCS7_Unpad(const uint8_t *buf, uint16_t buf_len);
-
 #endif /* CIPHER_H */

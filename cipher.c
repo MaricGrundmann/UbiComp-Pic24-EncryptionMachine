@@ -6,7 +6,10 @@
  * Public API
  * ----------
  *   CIPHER_Encrypt(key, iv, plaintext,  ciphertext, length)
+ *   CIPHER_Decrypt(key, iv, ciphertext, plaintext,  length)
  *   CIPHER_PKCS7_Pad   (buf, data_len) -> padded length
+ *   CIPHER_PKCS7_Unpad (buf, buf_len)  -> data length, 0 on bad padding
+
  *
  * Caller responsibilities
  * -----------------------
@@ -317,6 +320,39 @@ void CIPHER_Encrypt(const uint8_t *key,
     memset(prev, 0, sizeof(prev));
 }
 
+/*******************************************************************************
+ * CIPHER_Decrypt
+ *
+ * Decrypt 'length' bytes of 'ciphertext' into 'plaintext' using AES-256 CBC.
+ * 'length' must be a multiple of CIPHER_BLOCK_SIZE.
+ ******************************************************************************/
+void CIPHER_Decrypt(const uint8_t *key,
+                    const uint8_t *iv,
+                    const uint8_t *ciphertext,
+                          uint8_t *plaintext,
+                          uint16_t length)
+{
+    uint8_t  w[KEY_SCHEDULE_BYTES];
+    uint8_t  prev[CIPHER_BLOCK_SIZE];
+    uint8_t  dbuf[CIPHER_BLOCK_SIZE];
+    uint16_t offset;
+    uint8_t  i;
+
+    KeyExpansion(key, w);
+    memcpy(prev, iv, CIPHER_BLOCK_SIZE);
+
+    for (offset = 0U; offset < length; offset += CIPHER_BLOCK_SIZE) {
+        AES_DecryptBlock(w, &ciphertext[offset], dbuf);
+        for (i = 0U; i < CIPHER_BLOCK_SIZE; i++)
+            plaintext[offset + i] = dbuf[i] ^ prev[i];
+
+        memcpy(prev, &ciphertext[offset], CIPHER_BLOCK_SIZE);
+    }
+
+    memset(w,    0, sizeof(w));
+    memset(dbuf, 0, sizeof(dbuf));
+    memset(prev, 0, sizeof(prev));
+}
 
 /*******************************************************************************
  * CIPHER_PKCS7_Pad
@@ -335,3 +371,25 @@ uint16_t CIPHER_PKCS7_Pad(uint8_t *buf, uint16_t data_len)
     return (uint16_t)(data_len + pad);
 }
 
+/*******************************************************************************
+ * CIPHER_PKCS7_Unpad
+ *
+ * Validates and strips PKCS#7 padding from a decrypted buffer.
+ *
+ * Returns the original data length, or 0 if the padding is invalid.
+ ******************************************************************************/
+uint16_t CIPHER_PKCS7_Unpad(const uint8_t *buf, uint16_t buf_len)
+{
+    uint16_t i;
+    uint8_t  pad;
+
+    if (buf_len == 0U || (buf_len % CIPHER_BLOCK_SIZE) != 0U) { return 0U; }
+
+    pad = buf[buf_len - 1U];
+    if (pad == 0U || pad > CIPHER_BLOCK_SIZE) { return 0U; }
+
+    for (i = 0U; i < (uint16_t)pad; i++) {
+        if (buf[buf_len - 1U - i] != pad) { return 0U; }
+    }
+    return (uint16_t)(buf_len - pad);
+}

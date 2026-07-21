@@ -100,36 +100,58 @@ int8_t Storage_ProcessFile(uint8_t index, const char *password, uint8_t pwLen, u
 
     char dstName[13];
     if (encrypt) {
-        uint8_t dot = 255, i;
-        for (i = 0; srcName[i]; i++)
-            if (srcName[i] == '.') dot = i;
-        for (i = 0; i < 12 && srcName[i] && srcName[i] != '.'; i++)
-            dstName[i] = srcName[i];
-        if (dot < 12) {
-            if (i + 4 < 12) {
-                dstName[i] = '.';
-                dstName[i+1] = 'E';
-                dstName[i+2] = 'N';
-                dstName[i+3] = 'C';
-                dstName[i+4] = '\0';
-            } else return -1;
-        } else {
-            if (i + 4 < 12) {
-                dstName[i] = '.';
-                dstName[i+1] = 'E';
-                dstName[i+2] = 'N';
-                dstName[i+3] = 'C';
-                dstName[i+4] = '\0';
-            } else return -1;
+        uint8_t slen = strlen(srcName);
+        uint8_t dotPos = 255, i;
+        for (i = 0; i < slen; i++)
+            if (srcName[i] == '.') { dotPos = i; break; }
+
+        uint8_t baseLen = (dotPos < slen) ? dotPos : slen;
+        uint8_t extLen  = (dotPos < slen) ? (slen - dotPos - 1U) : 0U;
+
+        /* Build: first 5 basename chars + original 3 ext chars + ".enc"
+         * This keeps a single dot (valid 8.3) and preserves the original
+         * extension in the name field for recovery on decrypt. */
+        uint8_t out = 0;
+
+        /* Truncated basename (max 5) */
+        uint8_t cb = (baseLen > 5U) ? 5U : baseLen;
+        memcpy(dstName, srcName, cb);
+        out = cb;
+
+        /* Original extension embedded in the name (max 3) */
+        if (extLen > 0U) {
+            uint8_t ce = (extLen > 3U) ? 3U : extLen;
+            memcpy(dstName + out, srcName + dotPos + 1U, ce);
+            out += ce;
         }
+
+        /* 8.3 short names require uppercase extension */
+        if (out + 4U > 12U) return -1;
+        dstName[out++] = '.';
+        dstName[out++] = 'E';
+        dstName[out++] = 'N';
+        dstName[out++] = 'C';
+        dstName[out] = '\0';
     } else {
         uint8_t slen = strlen(srcName);
         if (slen > 4 && srcName[slen-4] == '.' &&
-            (srcName[slen-3] == 'E' || srcName[slen-3] == 'e') &&
-            (srcName[slen-2] == 'N' || srcName[slen-2] == 'n') &&
-            (srcName[slen-1] == 'C' || srcName[slen-1] == 'c')) {
-            memcpy(dstName, srcName, slen - 4);
-            dstName[slen - 4] = '\0';
+            (srcName[slen-3] == 'e' || srcName[slen-3] == 'E') &&
+            (srcName[slen-2] == 'n' || srcName[slen-2] == 'N') &&
+            (srcName[slen-1] == 'c' || srcName[slen-1] == 'C')) {
+            uint8_t nameLen = slen - 4;
+            /* Recover the original extension from the name portion:
+               last 3 chars before ".enc" are the original ext. */
+            if (nameLen >= 4U) {
+                uint8_t extStart = nameLen - 3U;
+                memcpy(dstName, srcName, extStart);
+                dstName[extStart] = '.';
+                memcpy(dstName + extStart + 1U, srcName + extStart, 3U);
+                dstName[extStart + 4U] = '\0';
+            } else {
+                /* Very short name — no extension encoded, just strip ".enc" */
+                memcpy(dstName, srcName, nameLen);
+                dstName[nameLen] = '\0';
+            }
         } else {
             return -1;
         }
@@ -144,7 +166,7 @@ int8_t Storage_ProcessFile(uint8_t index, const char *password, uint8_t pwLen, u
         return -1;
     }
 
-    Cipher_Init(password, pwLen);
+    Cipher_Init(password, pwLen, encrypt);
 
     uint8_t chunk[CHUNK_SIZE];
     int16_t result = 0;
@@ -153,12 +175,24 @@ int8_t Storage_ProcessFile(uint8_t index, const char *password, uint8_t pwLen, u
         uint16_t bytesRead = FILEIO_Read(chunk, 1, CHUNK_SIZE, &src);
         if (bytesRead == 0) break;
 
-        Cipher_Process(chunk, bytesRead);
+        Cipher_Update(chunk, &bytesRead);
 
-        uint16_t bytesWritten = FILEIO_Write(chunk, 1, bytesRead, &dst);
-        if (bytesWritten != bytesRead) {
-            result = -1;
-            break;
+        if (bytesRead > 0) {
+            uint16_t bytesWritten = FILEIO_Write(chunk, 1, bytesRead, &dst);
+            if (bytesWritten != bytesRead) {
+                result = -1;
+                break;
+            }
+        }
+    }
+
+    if (result == 0) {
+        uint16_t finalLen = CHUNK_SIZE;
+        Cipher_Final(chunk, &finalLen);
+        if (finalLen > 0) {
+            uint16_t bytesWritten = FILEIO_Write(chunk, 1, finalLen, &dst);
+            if (bytesWritten != finalLen)
+                result = -1;
         }
     }
 

@@ -110,4 +110,48 @@ void CIPHER_Decrypt(const uint8_t *key,
  * @return         Original data length, or 0 if padding is invalid/corrupt
  */
 uint16_t CIPHER_PKCS7_Unpad(const uint8_t *buf, uint16_t buf_len);
+
+/* =================================================================== *
+ *  Streaming API (password-based, buffers partial blocks internally)
+ * =================================================================== */
+
+/**
+ * Cipher_Init — Derive AES-256 key + IV from password, prepare for
+ * streaming encrypt or decrypt.
+ *
+ * @param password  ASCII password (not null-terminated, may contain
+ *                  any bytes 0x20-0x7E)
+ * @param pwLen     Number of password bytes
+ * @param encrypt   1 = encrypt, 0 = decrypt
+ */
+void Cipher_Init(const char *password, uint8_t pwLen, uint8_t encrypt);
+
+/**
+ * Cipher_Update — Process a chunk of data (in-place).
+ *
+ * On encrypt: buffers internally; emits full cipher blocks into
+ *             data[0..*len-1] and shortens *len accordingly.
+ * On decrypt: buffers internally; emits full plaintext blocks into
+ *             data[0..*len-1] and shortens *len accordingly.
+ *
+ * Must be called repeatedly with all input.  After the last data
+ * chunk, call Cipher_Final() to flush the final (padded) block.
+ *
+ * @param data  Input plaintext/ciphertext; output overwrites input.
+ * @param len   [in]  bytes in data;
+ *              [out] bytes of valid output written to data.
+ */
+void Cipher_Update(uint8_t *data, uint16_t *len);
+
+/**
+ * Cipher_Final — Flush the last buffered block with PKCS#7 padding
+ * (encrypt) or strip padding (decrypt).
+ *
+ * Must be called exactly once after the last Cipher_Update().
+ *
+ * @param data  Output buffer (must have room for at least 16 bytes)
+ * @param len   [out] bytes written to data (0 on error)
+ */
+void Cipher_Final(uint8_t *data, uint16_t *len);
+
 #endif /* CIPHER_H */

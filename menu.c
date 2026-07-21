@@ -240,7 +240,7 @@ void App_Run(void) {
             TextClear();
             SetColor(WHITE);
             TextDrawLine(0, "=== Main Menu ===");
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 2; i++) {
                 char buf[MENU_COLS + 1];
                 snprintf(buf, sizeof buf, "%c %s",
                          (i == sel) ? '>' : ' ', items[i]);

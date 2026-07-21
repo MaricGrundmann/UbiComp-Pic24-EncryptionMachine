@@ -26,6 +26,10 @@ void *USBHost_Malloc(size_t size) {
     return &usbHostPool[idx];
 }
 
+void USB_ResetPool(void) {
+    usbHostPoolIdx = 0;
+}
+
 void USB_SystemInit(void) {
     if (!usbInitialized) {
         usbHostPoolIdx = 0;

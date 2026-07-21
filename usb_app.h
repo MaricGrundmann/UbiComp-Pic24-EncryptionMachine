@@ -8,5 +8,6 @@ void USB_SystemInit(void);
 void USB_SystemTasks(void);
 const char* USB_GetStatus(void);
 void USB_ClearStatus(void);
+void USB_ResetPool(void);
 
 #endif

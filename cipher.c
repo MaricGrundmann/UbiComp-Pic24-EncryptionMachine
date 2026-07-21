@@ -39,7 +39,7 @@
 /* AES tables in program flash */
 
 #if defined(__XC16__) || defined(__XC32__)
-    #define PROG_MEM  /* force RAM: remove space(prog) */
+    #define PROG_MEM  /* force RAM */
 #else
     #define PROG_MEM 
 #endif
@@ -285,15 +285,12 @@ static void AES_DecryptBlock(const uint8_t *w, const uint8_t *in, uint8_t *out)
  * Streaming cipher context
  * =========================================================================*/
 
-#define CIPHER_SCRATCH 512U
-
 static struct {
     uint8_t  key[32];              /* AES-256 key                    */
     uint8_t  prev[16];             /* IV / previous ciphertext       */
     uint8_t  buf[16];              /* partial-block buffer           */
     uint8_t  buf_len;              /* bytes used in buf              */
     uint8_t  enc;                  /* 1 = encrypt, 0 = decrypt       */
-    uint8_t  scratch[CIPHER_SCRATCH];
 } sctx;
 
 /******************************************************************************
@@ -351,7 +348,6 @@ void Cipher_Update(uint8_t *data, uint16_t *len)
     if (sctx.enc) {
         /* ===== ENCRYPT ===== */
 
-        /* 1. Fill buf with new data until we have a full block */
         uint16_t avail = (uint16_t)(sctx.buf_len + inLen);
 
         if (avail < CIPHER_BLOCK_SIZE) {
@@ -362,7 +358,6 @@ void Cipher_Update(uint8_t *data, uint16_t *len)
             return;
         }
 
-        /* 2. Fill the first block from buf + data, encrypt it */
         uint16_t fill = (uint16_t)(CIPHER_BLOCK_SIZE - sctx.buf_len);
         memcpy(sctx.buf + sctx.buf_len, data, fill);
         for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
@@ -372,7 +367,6 @@ void Cipher_Update(uint8_t *data, uint16_t *len)
         out = CIPHER_BLOCK_SIZE;
         sctx.buf_len = 0;
 
-        /* 3. Process full blocks from remaining data */
         uint16_t remain = inLen - fill;
         uint16_t full   = remain - (remain % CIPHER_BLOCK_SIZE);
 
@@ -384,7 +378,6 @@ void Cipher_Update(uint8_t *data, uint16_t *len)
             out += CIPHER_BLOCK_SIZE;
         }
 
-        /* 4. Save residual (< 16 bytes) to buf */
         uint16_t leftover = remain - full;
         memcpy(sctx.buf, data + fill + full, leftover);
         sctx.buf_len = (uint8_t)leftover;
@@ -393,13 +386,33 @@ void Cipher_Update(uint8_t *data, uint16_t *len)
     } else {
         /* ===== DECRYPT ===== */
 
-        /* 1. Save incoming ciphertext to scratch (avoids in-place overlap) */
-        memcpy(sctx.scratch, data, inLen);
+        uint16_t full = inLen / CIPHER_BLOCK_SIZE;
+
+        if (full < 1U) {
+            memcpy(sctx.buf + sctx.buf_len, data, inLen);
+            sctx.buf_len = (uint8_t)(sctx.buf_len + inLen);
+            *len = 0;
+            memset(w, 0, sizeof(w));
+            return;
+        }
+
+        uint16_t process = (full > 1U) ? (full - 1U) : 0U;
+        uint16_t keep    = inLen - (process * CIPHER_BLOCK_SIZE);
+        uint8_t  keep_buf[16];
+
+        /* 1. Save the keep region (last block) before any writes */
+        memcpy(keep_buf, data + process * CIPHER_BLOCK_SIZE, keep);
+
+        /* 2. Save first block of new data if old buf will be processed first */
+        uint8_t  next_save[16];
+        uint8_t  had_old = (sctx.buf_len > 0U) ? 1U : 0U;
+        if (had_old && process > 0U)
+            memcpy(next_save, data, 16);
 
         out = 0;
 
-        /* 2. Process the kept block from a previous call (if any) */
-        if (sctx.buf_len > 0U) {
+        /* 3. Process old buf (kept from previous call) */
+        if (had_old) {
             AES_DecryptBlock(w, sctx.buf, tmp);
             for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
                 data[out++] = tmp[j] ^ sctx.prev[j];
@@ -407,26 +420,29 @@ void Cipher_Update(uint8_t *data, uint16_t *len)
             sctx.buf_len = 0;
         }
 
-        /* 3. Process all full blocks from scratch except the last */
-        uint16_t full = inLen / CIPHER_BLOCK_SIZE;
-
-        if (full > 0U) {
-            uint16_t process = (full > 1U) ? (full - 1U) : 0U;
-
-            for (i = 0U; i < process * CIPHER_BLOCK_SIZE; i += CIPHER_BLOCK_SIZE) {
-                AES_DecryptBlock(w, sctx.scratch + i, tmp);
-                for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
-                    data[out++] = tmp[j] ^ sctx.prev[j];
-                memcpy(sctx.prev, sctx.scratch + i, CIPHER_BLOCK_SIZE);
+        /* 4. Process new blocks with sliding window */
+        for (i = 0U; i < process; i++) {
+            uint8_t *src;
+            if (i == 0U && had_old) {
+                src = next_save;
+            } else if (i == 0U) {
+                src = data;
+            } else {
+                src = next_save;
             }
 
-            /* 4. Keep the last block in buf for padding handling */
-            uint16_t keep = inLen - (process * CIPHER_BLOCK_SIZE);
-            memcpy(sctx.buf, sctx.scratch + process * CIPHER_BLOCK_SIZE, keep);
-            sctx.buf_len = (uint8_t)keep;
+            if (i + 1U < process)
+                memcpy(next_save, data + (i + 1U) * 16, 16);
+
+            AES_DecryptBlock(w, src, tmp);
+            for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
+                data[out++] = tmp[j] ^ sctx.prev[j];
+            memcpy(sctx.prev, src, CIPHER_BLOCK_SIZE);
         }
 
-        memset(sctx.scratch, 0, inLen);
+        /* 5. Restore keep region to buf */
+        memcpy(sctx.buf, keep_buf, keep);
+        sctx.buf_len = (uint8_t)keep;
         *len = (uint16_t)out;
     }
 

@@ -93,6 +93,8 @@ int8_t Storage_ProcessFile(uint8_t index, const char *password, uint8_t pwLen, u
     if (!driveMounted || index >= cachedFileCount)
         return -1;
 
+    USB_ResetPool();
+
     FILEIO_OBJECT src, dst;
     char srcName[13];
 

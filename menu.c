@@ -253,14 +253,6 @@ void App_Run(void) {
         USB_SystemTasks();
         Keyboard_Tasks();
 
-        {
-            const char *s = USB_GetStatus();
-            if (s[0]) {
-                TextDrawLine(7, s);
-                USB_ClearStatus();
-            }
-        }
-
         DelayMs(15);
     }
 }
@@ -321,7 +313,8 @@ static int8_t Screen_PasswordInput(const char *prompt, char *password, uint8_t m
         TextDrawLine(2, password);
         TextDrawLine(4, "ENTER = ok");
         TextDrawLine(5, "LEFT  = cancel");
-        TextDrawLine(7, Keyboard_IsConnected() ? "Kbd connected" : "No keyboard");
+        if (!Keyboard_IsConnected())
+            TextDrawLine(7, "No keyboard");
 
 
 

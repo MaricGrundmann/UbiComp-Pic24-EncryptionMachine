@@ -9,58 +9,71 @@
 #include "keyboard.h"
 #include <string.h>
 
-/* Static pool for USB host stack allocations (no heap configured) */
-#define USB_HOST_POOL_SIZE 3072
-static uint8_t usbHostPool[USB_HOST_POOL_SIZE];
-static uint16_t usbHostPoolIdx;
-static uint8_t usbInitialized = 0;
+/* =========================================================================
+ *  Static pool for USB host stack allocations (no heap configured).
+ * ======================================================================== */
 
-static char usbStatus[40] = "";
+#define USB_HOST_POOL_SIZE 3072
+static uint8_t  usbHostPool[USB_HOST_POOL_SIZE];
+static uint16_t usbHostPoolIdx;
+static uint8_t  usbInitialized;
+static char     usbStatus[40] = "";
 
 void *USBHost_Malloc(size_t size) {
     uint16_t idx = usbHostPoolIdx;
-    /* Alignment auf 2 Byte für 16/32-Bit-Zugriffe der MLA */
-    if (idx & 1) idx++;
+    if (idx & 1) idx++;                         /* 2-byte alignment           */
     if (idx + size > USB_HOST_POOL_SIZE) return NULL;
     usbHostPoolIdx = idx + size;
     return &usbHostPool[idx];
 }
 
+/* =========================================================================
+ *  Pool management
+ * ======================================================================== */
+
 void USB_ResetPool(void) {
     usbHostPoolIdx = 0;
 }
+
+/* =========================================================================
+ *  System init / tasks
+ * ======================================================================== */
 
 void USB_SystemInit(void) {
     if (!usbInitialized) {
         usbHostPoolIdx = 0;
         usbInitialized  = 1;
 
-        /* Direct USB module setup – MLA hat keinen VBUS_ON f. PIC24 */
-        U1CON    = 0x08;       /* Host mode, SOF off */
-        U1OTGCON = 0x3B;       /* VBUS_ON | VBUS_CHG | D+PD | D-PD */
+        /* Direct USB module setup (MLA has no VBUS_ON for PIC24) */
+        U1CON    = 0x08;            /* host mode, SOF off         */
+        U1OTGCON = 0x3B;            /* VBUS_ON|CHG|D+PD|D-PD      */
         U1CNFG1  = USB_PING_PONG_MODE;
-        U1CNFG2  = 0x00;       /* Boost + Comp + Transceiver an */
-        U1PWRC   = 0x01;       /* Usb enable, normal operation */
+        U1CNFG2  = 0x00;            /* boost, comparator, XCVR on */
+        U1PWRC   = 0x01;            /* USB enable, normal op       */
 
-        USBInitialize(0);      /* Software state */
+        USBInitialize(0);           /* software state              */
     }
 }
 
 void USB_SystemTasks(void) {
-    U1OTGCON |= 0x0A;  /* VBUS_ON + VBUS_CHARGE vor USBTasks */
+    U1OTGCON |= 0x0A;              /* ensure VBUS_ON + VBUS_CHG   */
     USBTasks();
-    U1OTGCON |= 0x0A;  /* Wiederholen falls HW-Init es löscht */
+    U1OTGCON |= 0x0A;              /* repeat if HW init clears    */
 }
 
-const char* USB_GetStatus(void) {
-    return usbStatus;
-}
+/* =========================================================================
+ *  Status string
+ * ======================================================================== */
 
-void USB_ClearStatus(void) {
-    usbStatus[0] = '\0';
-}
+const char* USB_GetStatus(void)   { return usbStatus; }
+void        USB_ClearStatus(void)  { usbStatus[0] = '\0'; }
 
-bool USB_ApplicationEventHandler(uint8_t address, USB_EVENT event, void *data, uint32_t size) {
+/* =========================================================================
+ *  USB application event handler
+ * ======================================================================== */
+
+bool USB_ApplicationEventHandler(uint8_t address, USB_EVENT event,
+                                 void *data, uint32_t size) {
     switch ((int)event) {
         case EVENT_VBUS_REQUEST_POWER:
         case EVENT_VBUS_RELEASE_POWER:
@@ -106,10 +119,14 @@ bool USB_HID_DataCollectionHandler(void) {
     return true;
 }
 
+/* =========================================================================
+ *  FAT timestamp stub – always returns 1980-01-01 00:00:00.
+ * ======================================================================== */
+
 void GetTimestamp(FILEIO_TIMESTAMP *timestamp) {
-    timestamp->date.bitfield.day = 1;
+    timestamp->date.bitfield.day   = 1;
     timestamp->date.bitfield.month = 1;
-    timestamp->date.bitfield.year = 0;
+    timestamp->date.bitfield.year  = 0;
     timestamp->time.bitfield.hours = 0;
     timestamp->time.bitfield.minutes = 0;
     timestamp->time.bitfield.secondsDiv2 = 0;

@@ -33,7 +33,7 @@ void USB_ResetPool(void) {
 void USB_SystemInit(void) {
     if (!usbInitialized) {
         usbHostPoolIdx = 0;
-        usbInitialized = 1;
+        usbInitialized  = 1;
 
         /* Direct USB module setup – MLA hat keinen VBUS_ON f. PIC24 */
         U1CON    = 0x08;       /* Host mode, SOF off */

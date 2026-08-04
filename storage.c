@@ -8,6 +8,8 @@
 #include "usb_host_msd_scsi.h"
 #include "usb_app.h"
 #include "cipher.h"
+#include "menu.h"
+#include "SH1101A.h"
 
 extern void GetTimestamp(FILEIO_TIMESTAMP *);
 
@@ -170,6 +172,10 @@ int8_t Storage_ProcessFile(uint8_t index, const char *password, uint8_t pwLen, u
 
     Cipher_Init(password, pwLen, encrypt);
 
+    uint32_t totalSize = src.size;
+    uint32_t processed = 0;
+    uint8_t  lastPct    = 0xFF;
+
     uint8_t chunk[CHUNK_SIZE];
     int16_t result = 0;
 
@@ -184,6 +190,31 @@ int8_t Storage_ProcessFile(uint8_t index, const char *password, uint8_t pwLen, u
             if (bytesWritten != bytesRead) {
                 result = -1;
                 break;
+            }
+        }
+
+        processed += bytesRead;
+
+        if (totalSize > 0U) {
+            uint8_t pct = (uint8_t)((processed * 100ULL) / totalSize);
+            if (pct != lastPct) {
+                lastPct = pct;
+                char buf[22];
+                uint8_t bar = (uint8_t)((uint32_t)pct * 20U / 100U);
+                uint8_t k;
+                buf[0] = '[';
+                for (k = 0U; k < 20U; k++)
+                    buf[1U + k] = (k < bar) ? '=' : ' ';
+                buf[21] = '\0';
+
+                TextClear();
+                SetColor(WHITE);
+                TextDrawLine(0, encrypt ? "Encrypt" : "Decrypt");
+                TextDrawLine(2, srcName);
+                TextDrawLine(4, "Processing...");
+                TextDrawLine(5, buf);
+                snprintf(buf, sizeof buf, "%u %%", (unsigned)pct);
+                TextDrawLine(6, buf);
             }
         }
     }

@@ -8,6 +8,7 @@
 #include "TouchSense.h"
 #include "menu.h"
 #include "storage.h"
+#include "keyboard.h"
 #include "usb_app.h"
 #include "keyboard.h"
 
@@ -412,6 +413,8 @@ static void Screen_ProcessFiles(const char *title, uint8_t encrypt) {
         Keyboard_Tasks();
 
         int8_t res = Storage_ProcessFile((uint8_t)fileIdx, password, (uint8_t)pwLen, encrypt);
+
+        Keyboard_Init();
 
         uint8_t redraw = 1;
         for (;;) {

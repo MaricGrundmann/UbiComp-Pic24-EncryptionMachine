@@ -385,10 +385,42 @@ void Cipher_Update(uint8_t *data, uint16_t *len)
 
     } else {
         /* ===== DECRYPT ===== */
+        /* TEST: simple CBC decrypt all blocks in-place, no chunking */
+        volatile uint16_t nb = inLen / CIPHER_BLOCK_SIZE;
+        for (volatile uint16_t bi = 0U; bi < nb; bi++) {
+            volatile uint8_t ct[16];
+            for (j = 0U; j < 16U; j++) ct[j] = data[bi * 16U + j];
+            AES_DecryptBlock(w, ct, tmp);
+            for (j = 0U; j < 16U; j++) data[bi * 16U + j] = tmp[j] ^ sctx.prev[j];
+            for (j = 0U; j < 16U; j++) sctx.prev[j] = ct[j];
+        }
+        *len = inLen;
+        memset(w, 0, sizeof(w));
+        return;
 
-        uint16_t full = inLen / CIPHER_BLOCK_SIZE;
+        /* TEST: AES decrypt without CBC chaining (prev = zeros) */
+        volatile uint16_t test_full = inLen / CIPHER_BLOCK_SIZE;
+        volatile uint16_t test_out = 0;
 
-        if (full < 1U) {
+        for (volatile uint16_t ti = 0U; ti < test_full; ti++) {
+            volatile uint8_t test_ct[16];
+            volatile uint8_t test_zero[16];
+            for (j = 0U; j < 16U; j++) {
+                test_ct[j] = data[ti * 16U + j];
+                test_zero[j] = 0U;
+                sctx.prev[j] = 0U;
+            }
+            AES_DecryptBlock(w, test_ct, tmp);
+            for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
+                data[test_out++] = tmp[j] ^ test_zero[j];
+        }
+        *len = (uint16_t)test_out;
+        memset(w, 0, sizeof(w));
+        return;
+
+        volatile uint16_t v_full = inLen / CIPHER_BLOCK_SIZE;
+
+        if (v_full < 1U) {
             memcpy(sctx.buf + sctx.buf_len, data, inLen);
             sctx.buf_len = (uint8_t)(sctx.buf_len + inLen);
             *len = 0;
@@ -396,54 +428,52 @@ void Cipher_Update(uint8_t *data, uint16_t *len)
             return;
         }
 
-        uint16_t process = (full > 1U) ? (full - 1U) : 0U;
-        uint16_t keep    = inLen - (process * CIPHER_BLOCK_SIZE);
-        uint8_t  keep_buf[16];
+        volatile uint16_t v_process = (v_full > 1U) ? (v_full - 1U) : 0U;
+        volatile uint16_t v_keep    = inLen - (v_process * CIPHER_BLOCK_SIZE);
+        uint8_t keep_buf[16];
 
-        /* 1. Save the keep region (last block) before any writes */
-        memcpy(keep_buf, data + process * CIPHER_BLOCK_SIZE, keep);
+        memcpy(keep_buf, data + v_process * CIPHER_BLOCK_SIZE, v_keep);
 
-        /* 2. Save first block of new data if old buf will be processed first */
-        uint8_t  next_save[16];
-        uint8_t  had_old = (sctx.buf_len > 0U) ? 1U : 0U;
-        if (had_old && process > 0U)
-            memcpy(next_save, data, 16);
+        uint8_t next_save[16];
+        volatile uint8_t v_had_old = (sctx.buf_len > 0U) ? 1U : 0U;
+        if (v_had_old && v_process > 0U)
+            for (j = 0U; j < 16U; j++) next_save[j] = data[j];
 
-        out = 0;
+        volatile uint16_t v_out = 0;
 
-        /* 3. Process old buf (kept from previous call) */
-        if (had_old) {
+        if (v_had_old) {
             AES_DecryptBlock(w, sctx.buf, tmp);
             for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
-                data[out++] = tmp[j] ^ sctx.prev[j];
-            memcpy(sctx.prev, sctx.buf, CIPHER_BLOCK_SIZE);
+                data[v_out++] = tmp[j] ^ sctx.prev[j];
+            for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
+                sctx.prev[j] = sctx.buf[j];
             sctx.buf_len = 0;
         }
 
-        /* 4. Process new blocks with sliding window */
-        for (i = 0U; i < process; i++) {
-            uint8_t *src;
-            if (i == 0U && had_old) {
-                src = next_save;
-            } else if (i == 0U) {
-                src = data;
-            } else {
-                src = next_save;
-            }
+        for (volatile uint16_t vi = 0U; vi < v_process; vi++) {
+            volatile uint8_t cur[16];
+            volatile uint8_t vsrc_is_next = (vi == 0U && v_had_old) || (vi > 0U);
 
-            if (i + 1U < process)
-                memcpy(next_save, data + (i + 1U) * 16, 16);
+            if (vsrc_is_next)
+                for (j = 0U; j < 16U; j++) cur[j] = next_save[j];
+            else
+                for (j = 0U; j < 16U; j++) cur[j] = data[j];
 
-            AES_DecryptBlock(w, src, tmp);
+            if (vi + 1U < v_process)
+                for (j = 0U; j < 16U; j++)
+                    next_save[j] = data[(vi + 1U) * 16U + j];
+
+            AES_DecryptBlock(w, (const uint8_t*)cur, tmp);
             for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
-                data[out++] = tmp[j] ^ sctx.prev[j];
-            memcpy(sctx.prev, src, CIPHER_BLOCK_SIZE);
+                data[v_out++] = tmp[j] ^ sctx.prev[j];
+            for (j = 0U; j < CIPHER_BLOCK_SIZE; j++)
+                sctx.prev[j] = cur[j];
         }
 
-        /* 5. Restore keep region to buf */
-        memcpy(sctx.buf, keep_buf, keep);
-        sctx.buf_len = (uint8_t)keep;
-        *len = (uint16_t)out;
+        for (j = 0U; j < 16U; j++)
+            sctx.buf[j] = keep_buf[j];
+        sctx.buf_len = CIPHER_BLOCK_SIZE;
+        *len = (uint16_t)v_out;
     }
 
     memset(w, 0, sizeof(w));
@@ -474,14 +504,12 @@ void Cipher_Final(uint8_t *data, uint16_t *len)
 
     } else {
         /* ===== DECRYPT ===== */
-        if (sctx.buf_len == 0U || (sctx.buf_len % CIPHER_BLOCK_SIZE) != 0U) {
+        if (sctx.buf_len != CIPHER_BLOCK_SIZE) {
             *len = 0;
             memset(w, 0, sizeof(w));
             return;
         }
 
-        /* buf always has exactly one block (16 bytes) for valid ciphertext.
-         * Decrypt it, XOR with prev, unpad, and emit. */
         AES_DecryptBlock(w, sctx.buf, tmp);
         for (i = 0U; i < CIPHER_BLOCK_SIZE; i++)
             tmp[i] ^= sctx.prev[i];
